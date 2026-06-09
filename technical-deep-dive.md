@@ -90,6 +90,7 @@ From that policy, the TypeScript CLI calculates:
 - the period amount in base units
 - the expiry timestamp
 - the maximum request count allowed by the period budget
+- the `createRecurringDelegation` instruction and parsed instruction data
 
 The demo uses `@solana/subscriptions` and `@solana/kit` rather than hand-written PDA math:
 
@@ -107,7 +108,26 @@ const [recurringDelegationPda] = await findRecurringDelegationPda({
 });
 ```
 
-Running `npm run check` builds the TypeScript and runs the demo. The example outputs the subscriptions program id, the derived PDAs, the daily USDC base-unit allowance, and a request ceiling of 175 API calls per period for a 0.02 USDC unit price.
+It also builds the recurring delegation instruction with the generated SDK:
+
+```ts
+const instruction = getCreateRecurringDelegationInstruction({
+  delegator: createNoopSigner(userAddress),
+  subscriptionAuthority: subscriptionAuthorityPda,
+  delegationAccount: recurringDelegationPda,
+  delegatee: delegateAddress,
+  recurringDelegation: {
+    nonce,
+    amountPerPeriod: periodAmountBaseUnits,
+    periodLengthS: BigInt(policy.periodSeconds),
+    startTs,
+    expiryTs: BigInt(expiresAtUnix),
+    expectedSubscriptionAuthorityInitId: 0n
+  }
+});
+```
+
+Running `npm run check` builds the TypeScript and runs the demo. The example outputs the subscriptions program id, the derived PDAs, the daily USDC base-unit allowance, a request ceiling of 175 API calls per period for a 0.02 USDC unit price, and a parsed instruction summary with the discriminator, account count, data length, period amount, period length, start time, expiry, and expected subscription-authority init id.
 
 That is a small example, but it shows the business logic: an API gateway can map on-chain allowance to off-chain service metering. Before each request, the gateway can check its local usage ledger and the delegation rule. At collection time, it pulls only what the rule permits.
 

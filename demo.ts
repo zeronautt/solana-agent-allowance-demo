@@ -1,10 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { inspect } from "node:util";
 
-import { address } from "@solana/kit";
+import { address, createNoopSigner } from "@solana/kit";
 import {
   findRecurringDelegationPda,
   findSubscriptionAuthorityPda,
+  getCreateRecurringDelegationInstruction,
+  parseCreateRecurringDelegationInstruction,
   SUBSCRIPTIONS_PROGRAM_ADDRESS
 } from "@solana/subscriptions";
 
@@ -41,6 +43,19 @@ type SpendingPlan = {
   periodAmountBaseUnits: bigint;
   expiresAtUnix: number;
   maxRequestsPerPeriod: bigint;
+  createRecurringDelegationInstruction: {
+    programAddress: string;
+    accountCount: number;
+    dataLengthBytes: number;
+    parsed: {
+      discriminator: number;
+      amountPerPeriod: bigint;
+      periodLengthS: bigint;
+      startTs: bigint;
+      expiryTs: bigint;
+      expectedSubscriptionAuthorityInitId: bigint;
+    };
+  };
   userFacingSummary: string;
 };
 
@@ -78,7 +93,9 @@ async function buildSpendingPlan(policy: Policy): Promise<SpendingPlan> {
   const maxUnitPriceBaseUnits = parseUiAmount(policy.service.maxUnitPriceUi, policy.decimals);
   const maxRequestsPerPeriod =
     maxUnitPriceBaseUnits > 0n ? periodAmountBaseUnits / maxUnitPriceBaseUnits : 0n;
-  const expiresAtUnix = Math.floor(Date.now() / 1000) + policy.expiresInDays * 24 * 60 * 60;
+  const nowUnix = Math.floor(Date.now() / 1000);
+  const startTs = BigInt(nowUnix + 60);
+  const expiresAtUnix = nowUnix + policy.expiresInDays * 24 * 60 * 60;
 
   const [subscriptionAuthorityPda] = await findSubscriptionAuthorityPda({
     user: userAddress,
@@ -92,6 +109,22 @@ async function buildSpendingPlan(policy: Policy): Promise<SpendingPlan> {
     nonce
   });
 
+  const createRecurringInstruction = getCreateRecurringDelegationInstruction({
+    delegator: createNoopSigner(userAddress),
+    subscriptionAuthority: subscriptionAuthorityPda,
+    delegationAccount: recurringDelegationPda,
+    delegatee: delegateAddress,
+    recurringDelegation: {
+      nonce,
+      amountPerPeriod: periodAmountBaseUnits,
+      periodLengthS: BigInt(policy.periodSeconds),
+      startTs,
+      expiryTs: BigInt(expiresAtUnix),
+      expectedSubscriptionAuthorityInitId: 0n
+    }
+  });
+  const parsedInstruction = parseCreateRecurringDelegationInstruction(createRecurringInstruction);
+
   return {
     label: policy.label,
     network: policy.network,
@@ -102,6 +135,20 @@ async function buildSpendingPlan(policy: Policy): Promise<SpendingPlan> {
     periodAmountBaseUnits,
     expiresAtUnix,
     maxRequestsPerPeriod,
+    createRecurringDelegationInstruction: {
+      programAddress: createRecurringInstruction.programAddress,
+      accountCount: createRecurringInstruction.accounts.length,
+      dataLengthBytes: createRecurringInstruction.data.length,
+      parsed: {
+        discriminator: parsedInstruction.data.discriminator,
+        amountPerPeriod: parsedInstruction.data.recurringDelegation.amountPerPeriod,
+        periodLengthS: parsedInstruction.data.recurringDelegation.periodLengthS,
+        startTs: parsedInstruction.data.recurringDelegation.startTs,
+        expiryTs: parsedInstruction.data.recurringDelegation.expiryTs,
+        expectedSubscriptionAuthorityInitId:
+          parsedInstruction.data.recurringDelegation.expectedSubscriptionAuthorityInitId
+      }
+    },
     userFacingSummary:
       `${policy.service.name}: delegate can pull at most ${policy.periodAmountUi} tokens ` +
       `every ${policy.periodSeconds}s until ${new Date(expiresAtUnix * 1000).toISOString()}.`

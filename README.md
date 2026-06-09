@@ -36,6 +36,7 @@ The CLI reads a JSON policy and derives the program addresses needed for a recur
 - base-unit budget for the period
 - expiry timestamp
 - maximum API calls per period, based on a configured unit price
+- a `createRecurringDelegation` instruction built with the official SDK and parsed back for verification
 
 It uses the public `@solana/subscriptions` TypeScript package instead of hand-written PDA math.
 
@@ -46,7 +47,7 @@ npm install
 npm run check
 ```
 
-Expected output is a spending plan with the subscriptions program id, derived PDAs, budget in base units, expiry, and request ceiling.
+Expected output is a spending plan with the subscriptions program id, derived PDAs, budget in base units, expiry, request ceiling, and a parsed `createRecurringDelegation` instruction summary.
 
 ## Example Policy
 
@@ -80,5 +81,5 @@ A Canadian Solana builder running a public data API could use this pattern to se
 ## Next Steps
 
 - Replace placeholder pubkeys with devnet addresses.
-- Add a transaction builder that calls `initSubscriptionAuthority` and `createRecurringDelegation`.
+- Add a transaction sender that calls `initSubscriptionAuthority` before sending the prepared `createRecurringDelegation` instruction.
 - Add a mock gateway that checks remaining period budget before each API request.
