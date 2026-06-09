@@ -1,0 +1,18 @@
+{
+  "label": "AI research agent RPC budget",
+  "network": "devnet",
+  "mint": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+  "owner": "4vJ9JU1bJJE96FWSYJY3uLJSgYk9zYrZ5f2a1x8Kf5w",
+  "ownerTokenAccount": "2yYQZLwXxse8pJ6QdFJ2RHHnP8JxsvqVWnzt8nLz8bMp",
+  "delegate": "11111111111111111111111111111111",
+  "periodSeconds": 86400,
+  "periodAmountUi": "3.50",
+  "decimals": 6,
+  "expiresInDays": 30,
+  "service": {
+    "name": "Indexing API credits",
+    "endpoint": "https://api.example.com/v1/search",
+    "unit": "request",
+    "maxUnitPriceUi": "0.02"
+  }
+}
